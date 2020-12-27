@@ -132,22 +132,6 @@ const send = (res, data, format) => {
     return res.send(data);
 }
 
-const app = module.exports = express();
-
-app.param('slug', (req, res, next) => {
-    next();
-});
-
-app.param('house', (req, res, next) => {
-    next();
-});
-
-app.param('id', (req, res, next, id) => {
-    next();
-});
-
-app.get('/house(:format(.xml|.json))', async (req, res) => send(res, await getHouses(req.query), req.params.format));
-
 const priceToXml = result => {
     const prices = [];
     result.forEach(r => {
@@ -172,13 +156,25 @@ const priceToXml = result => {
     };
 }
 
-app.get('/price/(:id):format(.xml|.json)', async (req, res) => {
+const app = module.exports = express();
+
+app.get('/house(:format(.xml|.json))', async (req, res) => send(res, await getHouses(req.query), req.params.format));
+
+app.get('/price/(:id)(:format(.xml|.json))', async (req, res) => {
     const houses = await getHouses(req.query);
     const query = buildQuery('SELECT * FROM tblItemSummary',
         { house: houses.map(h => h.house), id: req.params.id }, 
         TBL_ITEM_SUMMARY_QUERY_MAPPING);
     const result = await asyncQuery(query.sql, query.params);
     send(res, req.params.format === '.xml' ? priceToXml(result) : result, req.params.format);
+});
+
+app.get('/items(:format(.xml|.json))', async (req, res) => {
+    send(res, await asyncQuery('SELECT * FROM tblDBCItem WHERE auctionable = ?', [1]), req.params.format);
+});
+
+app.get('/item/(:id)(:format(.xml|.json))', async (req, res) => {
+    send(res, await asyncQuery('SELECT * FROM tblDBCItem WHERE id = ?', [req.params.id]), req.params.format);
 });
 
 if (!module.parent) {
